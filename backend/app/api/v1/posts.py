@@ -1,15 +1,10 @@
-from datetime import datetime, timedelta
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from app.db.deps import get_db
 from app.api.deps import get_current_user, require_roles
-from app.models.post import Post
 from app.models.enums import PostStatus, UserRole
-from app.models.channel import Channel
-from app.schemas.post import PostCreate, PostOut, PostUpdate, ScheduleRequest, RejectRequest
-from app.services.audit import log_action
-from app.services.telegram import publish_message
-from app.core.config import settings
+from app.schemas.post import PostCreate, PostOut, PostUpdate, ScheduleRequest, RejectRequest, PostListOut
+from app.usecases import posts as post_usecase
 
 router = APIRouter(prefix="", tags=["posts"])
 
@@ -21,109 +16,62 @@ def create_post(
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    channel = db.get(Channel, channel_id)
-    if not channel:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Channel not found")
-    post = Post(
-        channel_id=channel_id,
-        title=payload.title,
-        body_text=payload.body_text,
-        media_url=payload.media_url,
-        created_by=user.id,
-        updated_by=user.id,
-    )
-    db.add(post)
-    db.commit()
-    db.refresh(post)
-    log_action(db, "post", post.id, "create", user.id, {"status": post.status})
-    return post
+    return post_usecase.create_post(db, channel_id, payload, user)
 
 
-@router.get("/channels/{channel_id}/posts", response_model=list[PostOut])
+@router.get("/channels/{channel_id}/posts", response_model=list[PostListOut])
 def list_posts(
     channel_id: int,
     status_filter: PostStatus | None = None,
+    status_filters: list[PostStatus] | None = Query(None),
+    limit: int = 50,
+    offset: int = 0,
     db: Session = Depends(get_db),
     _user=Depends(get_current_user),
 ):
-    query = db.query(Post).filter(Post.channel_id == channel_id)
-    if status_filter:
-        query = query.filter(Post.status == status_filter)
-    return query.order_by(Post.created_at.desc()).all()
+    filters = status_filters or ([status_filter] if status_filter else None)
+    return post_usecase.list_posts(db, channel_id, filters, limit=limit, offset=offset)
 
 
-@router.put("/{post_id}", response_model=PostOut)
+@router.get("/posts/{post_id}", response_model=PostOut)
+def get_post(
+    post_id: int,
+    db: Session = Depends(get_db),
+    _user=Depends(get_current_user),
+):
+    return post_usecase.get_post(db, post_id)
+
+
+@router.put("/posts/{post_id}", response_model=PostOut)
 def update_post(
     post_id: int,
     payload: PostUpdate,
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    post = db.get(Post, post_id)
-    if not post:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
-    if post.status not in {PostStatus.draft, PostStatus.rejected}:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Post is locked for editing")
-    if user.role not in {UserRole.admin, UserRole.editor} and post.created_by != user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed to edit this post")
-
-    for field, value in payload.model_dump(exclude_unset=True).items():
-        setattr(post, field, value)
-    post.updated_by = user.id
-    post.updated_at = datetime.utcnow()
-    db.commit()
-    db.refresh(post)
-    log_action(db, "post", post.id, "update", user.id, {"status": post.status})
-    return post
+    return post_usecase.update_post(db, post_id, payload, user)
 
 
-@router.post("/{post_id}/submit-approval", response_model=PostOut)
+@router.post("/posts/{post_id}/submit-approval", response_model=PostOut)
 def submit_approval(
     post_id: int,
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    post = db.get(Post, post_id)
-    if not post:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
-    if post.status not in {PostStatus.draft, PostStatus.rejected}:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid status")
-    if user.role not in {UserRole.admin, UserRole.editor} and post.created_by != user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed to submit this post")
-
-    post.status = PostStatus.pending
-    post.updated_by = user.id
-    post.updated_at = datetime.utcnow()
-    db.commit()
-    db.refresh(post)
-    log_action(db, "post", post.id, "submit", user.id, {"status": post.status})
-    return post
+    return post_usecase.submit_approval(db, post_id, user)
 
 
-@router.post("/{post_id}/approve", response_model=PostOut)
+@router.post("/posts/{post_id}/approve", response_model=PostOut)
 def approve_post(
     post_id: int,
     db: Session = Depends(get_db),
     _editor=Depends(require_roles(UserRole.editor, UserRole.admin)),
     user=Depends(get_current_user),
 ):
-    post = db.get(Post, post_id)
-    if not post:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
-    if post.status != PostStatus.pending:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid status")
-
-    post.status = PostStatus.approved
-    post.editor_comment = None
-    post.updated_by = user.id
-    post.updated_at = datetime.utcnow()
-    db.commit()
-    db.refresh(post)
-    log_action(db, "post", post.id, "approve", user.id, {"status": post.status})
-    return post
+    return post_usecase.approve_post(db, post_id, user)
 
 
-@router.post("/{post_id}/reject", response_model=PostOut)
+@router.post("/posts/{post_id}/reject", response_model=PostOut)
 def reject_post(
     post_id: int,
     payload: RejectRequest,
@@ -131,23 +79,10 @@ def reject_post(
     _editor=Depends(require_roles(UserRole.editor, UserRole.admin)),
     user=Depends(get_current_user),
 ):
-    post = db.get(Post, post_id)
-    if not post:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
-    if post.status != PostStatus.pending:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid status")
-
-    post.status = PostStatus.rejected
-    post.editor_comment = payload.comment
-    post.updated_by = user.id
-    post.updated_at = datetime.utcnow()
-    db.commit()
-    db.refresh(post)
-    log_action(db, "post", post.id, "reject", user.id, {"status": post.status, "comment": payload.comment})
-    return post
+    return post_usecase.reject_post(db, post_id, payload, user)
 
 
-@router.post("/{post_id}/schedule", response_model=PostOut)
+@router.post("/posts/{post_id}/schedule", response_model=PostOut)
 def schedule_post(
     post_id: int,
     payload: ScheduleRequest,
@@ -155,70 +90,24 @@ def schedule_post(
     _editor=Depends(require_roles(UserRole.editor, UserRole.admin)),
     user=Depends(get_current_user),
 ):
-    post = db.get(Post, post_id)
-    if not post:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
-    if post.status not in {PostStatus.approved}:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid status")
-
-    post.status = PostStatus.scheduled
-    post.scheduled_at = payload.scheduled_at
-    post.updated_by = user.id
-    post.updated_at = datetime.utcnow()
-    db.commit()
-    db.refresh(post)
-    log_action(db, "post", post.id, "schedule", user.id, {"status": post.status, "scheduled_at": str(payload.scheduled_at)})
-    return post
+    return post_usecase.schedule_post(db, post_id, payload, user)
 
 
-@router.post("/{post_id}/publish-now", response_model=PostOut)
+@router.post("/posts/{post_id}/publish-now", response_model=PostOut)
 def publish_now(
     post_id: int,
     db: Session = Depends(get_db),
     _editor=Depends(require_roles(UserRole.editor, UserRole.admin)),
     user=Depends(get_current_user),
 ):
-    post = db.get(Post, post_id)
-    if not post:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
-    if post.status not in {PostStatus.approved, PostStatus.scheduled}:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid status")
+    return post_usecase.publish_now(db, post_id, user)
 
-    channel = db.get(Channel, post.channel_id)
-    if not channel:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Channel not found")
 
-    result = publish_message(
-        channel.telegram_channel_identifier,
-        f"{post.title}\n\n{post.body_text}",
-        post.media_url,
-    )
-    if result.ok:
-        post.status = PostStatus.published
-        post.published_at = datetime.utcnow()
-        post.telegram_message_id = result.message_id
-        post.last_error = None
-        post.updated_by = user.id
-        post.updated_at = datetime.utcnow()
-        db.commit()
-        db.refresh(post)
-        log_action(db, "post", post.id, "publish", user.id, {"status": post.status})
-        return post
-
-    post.publish_attempts += 1
-    post.updated_by = user.id
-    post.updated_at = datetime.utcnow()
-    post.last_error = result.error
-    if post.publish_attempts < settings.publish_retry_max:
-        post.status = PostStatus.scheduled
-        post.scheduled_at = datetime.utcnow() + timedelta(seconds=settings.publish_retry_delay_seconds)
-        db.commit()
-        db.refresh(post)
-        log_action(db, "post", post.id, "retry", user.id, {"error": result.error})
-        return post
-
-    post.status = PostStatus.failed
-    db.commit()
-    db.refresh(post)
-    log_action(db, "post", post.id, "fail", user.id, {"error": result.error})
-    return post
+@router.delete("/posts/{post_id}", status_code=204)
+def delete_post(
+    post_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+    _admin=Depends(require_roles(UserRole.admin)),
+):
+    post_usecase.delete_post(db, post_id, user)

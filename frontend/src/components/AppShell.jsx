@@ -7,6 +7,7 @@ export default function AppShell() {
 
   function logout() {
     localStorage.removeItem("token");
+    document.cookie = "access_token=; Max-Age=0; path=/";
     setToken(null);
     navigate("/login");
   }
@@ -16,7 +17,10 @@ export default function AppShell() {
       <aside className="sidebar">
         <div className="brand">Manager TG</div>
         <nav className="nav">
-          <Link to="/">Dashboard</Link>
+          <Link to="/telegram">Telegram</Link>
+          <Link to="/youtube">YouTube</Link>
+          <Link to="/vk">VK</Link>
+          <Link to="/zen">Дзен</Link>
         </nav>
         <button className="ghost" onClick={logout}>
           Выйти

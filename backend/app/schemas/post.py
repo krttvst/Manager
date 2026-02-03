@@ -36,6 +36,21 @@ class PostOut(BaseModel):
         from_attributes = True
 
 
+class PostListOut(BaseModel):
+    id: int
+    channel_id: int
+    title: str
+    body_excerpt: str
+    media_url: str | None
+    status: PostStatus
+    scheduled_at: datetime | None
+    published_at: datetime | None
+    last_error: str | None
+    editor_comment: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
 class ScheduleRequest(BaseModel):
     scheduled_at: datetime
 

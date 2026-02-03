@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { apiFetch } from "./api.js";
+import { getMe } from "../api/auth.js";
 
 const AuthContext = createContext(null);
 
@@ -8,13 +8,31 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
+    function handleStorage(event) {
+      if (event.key === "token") {
+        setToken(event.newValue);
+      }
+    }
+    function handleLogout() {
+      setToken(null);
+      setUser(null);
+    }
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("auth:logout", handleLogout);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("auth:logout", handleLogout);
+    };
+  }, []);
+
+  useEffect(() => {
     async function loadMe() {
       if (!token) {
         setUser(null);
         return;
       }
       try {
-        const me = await apiFetch("/users/me", { token });
+        const me = await getMe(token);
         setUser(me);
       } catch {
         setUser(null);

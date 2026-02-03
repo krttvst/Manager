@@ -11,6 +11,10 @@ celery_app = Celery(
 )
 
 celery_app.conf.update(
+    include=["app.workers.tasks"],
+)
+
+celery_app.conf.update(
     task_track_started=True,
     timezone="UTC",
     enable_utc=True,

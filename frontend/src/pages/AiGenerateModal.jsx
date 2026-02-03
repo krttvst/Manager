@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "../state/auth.jsx";
-import { apiFetch } from "../state/api.js";
+import { createPost } from "../api/posts.js";
+import { generateFromUrl } from "../api/ai.js";
 
 export default function AiGenerateModal({ channelId, onClose, onCreated }) {
   const { token } = useAuth();
@@ -15,16 +16,8 @@ export default function AiGenerateModal({ channelId, onClose, onCreated }) {
     setError("");
     setLoading(true);
     try {
-      const draft = await apiFetch(`/channels/${channelId}/posts`, {
-        method: "POST",
-        token,
-        body: { title: "Черновик", body_text: "..." }
-      });
-      await apiFetch(`/posts/${draft.id}/ai-generate`, {
-        method: "POST",
-        token,
-        body: { url, tone, length, language: "ru" }
-      });
+      const draft = await createPost(token, channelId, { title: "Черновик", body_text: "..." });
+      await generateFromUrl(token, draft.id, { url, tone, length, language: "ru" });
       onCreated();
       onClose();
     } catch (err) {

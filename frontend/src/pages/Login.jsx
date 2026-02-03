@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../state/auth.jsx";
-import { apiFetch } from "../state/api.js";
+import { login } from "../api/auth.js";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -14,11 +14,9 @@ export default function Login() {
     event.preventDefault();
     setError("");
     try {
-      const data = await apiFetch("/auth/login", {
-        method: "POST",
-        body: { email, password }
-      });
+      const data = await login(email, password);
       localStorage.setItem("token", data.access_token);
+      document.cookie = `access_token=${data.access_token}; path=/`;
       setToken(data.access_token);
       navigate("/");
     } catch (err) {
