@@ -45,6 +45,7 @@ class PostListOut(BaseModel):
     status: PostStatus
     scheduled_at: datetime | None
     published_at: datetime | None
+    last_known_views: int | None
     last_error: str | None
     editor_comment: str | None
     created_at: datetime

@@ -202,3 +202,29 @@ def delete_message(channel_identifier: str, message_id: str) -> TelegramResult:
         return TelegramResult(ok=False, message_id=None, error=str(data))
 
     return TelegramResult(ok=True, message_id=str(message_id), error=None)
+
+
+def get_message_views(channel_identifier: str, message_id: str) -> int | None:
+    if not settings.telegram_bot_token:
+        return None
+
+    base_url = _base_url()
+    try:
+        with httpx.Client(timeout=10) as client:
+            response = client.get(
+                f"{base_url}/getMessage",
+                params={"chat_id": channel_identifier, "message_id": message_id},
+            )
+            data = response.json()
+    except Exception:
+        return None
+
+    if not data.get("ok"):
+        return None
+
+    result = data.get("result", {})
+    views = result.get("views") or result.get("view_count")
+    try:
+        return int(views) if views is not None else None
+    except Exception:
+        return None

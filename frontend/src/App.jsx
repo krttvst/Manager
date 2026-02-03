@@ -3,6 +3,7 @@ import Login from "./pages/Login.jsx";
 import Telegram from "./pages/Telegram.jsx";
 import Placeholder from "./pages/Placeholder.jsx";
 import Channel from "./pages/Channel.jsx";
+import AgentSettings from "./pages/AgentSettings.jsx";
 import AppShell from "./components/AppShell.jsx";
 import { AuthProvider, useAuth } from "./state/auth.jsx";
 
@@ -32,6 +33,7 @@ export default function App() {
             <Route path="vk" element={<Placeholder title="VK" />} />
             <Route path="zen" element={<Placeholder title="Дзен" />} />
             <Route path="channels/:id" element={<Channel />} />
+            <Route path="channels/:id/agent-settings" element={<AgentSettings />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

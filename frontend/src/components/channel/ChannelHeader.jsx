@@ -2,7 +2,6 @@ export default function ChannelHeader({
   channel,
   canCreatePost,
   onCreatePost,
-  onAiGenerate,
   onDeleteChannel
 }) {
   return (
@@ -19,9 +18,6 @@ export default function ChannelHeader({
       <div className="actions-inline">
         {canCreatePost && (
           <>
-            <button className="ghost-dark" onClick={onAiGenerate}>
-              AI из URL
-            </button>
             <button className="primary" onClick={onCreatePost}>
               Создать пост
             </button>
@@ -34,4 +30,3 @@ export default function ChannelHeader({
     </div>
   );
 }
-

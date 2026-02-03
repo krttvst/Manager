@@ -31,6 +31,8 @@ def list_posts_compact(
         Post.status,
         Post.scheduled_at,
         Post.published_at,
+        Post.telegram_message_id,
+        Post.last_known_views,
         Post.last_error,
         Post.editor_comment,
         Post.created_at,
@@ -41,6 +43,11 @@ def list_posts_compact(
     stmt = stmt.order_by(Post.created_at.desc()).limit(safe_limit).offset(safe_offset)
     rows = db.execute(stmt).all()
     return [dict(row._mapping) for row in rows]
+
+
+def update_last_known_views(db: Session, post_id: int, views: int) -> None:
+    db.query(Post).filter(Post.id == post_id).update({Post.last_known_views: views}, synchronize_session=False)
+    db.commit()
 
 
 def create_post(db: Session, post: Post) -> Post:

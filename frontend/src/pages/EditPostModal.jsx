@@ -77,7 +77,7 @@ export default function EditPostModal({ post, onClose, onUpdated }) {
     setError("");
     try {
       const updated = await updateMutation.mutateAsync();
-      if (scheduledAt) {
+      if (scheduledAt && !isPublished) {
         const selected = new Date(scheduledAt);
         if (Number.isNaN(selected.getTime()) || selected <= new Date()) {
           setError("Дата и время должны быть в будущем");
@@ -139,22 +139,26 @@ export default function EditPostModal({ post, onClose, onUpdated }) {
             Картинка
             <input type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files?.[0] || null)} />
           </label>
-          <label>
-            Дата и время публикации
-            <input
-              type="datetime-local"
-              value={scheduledAt}
-              onChange={(e) => {
-                setScheduledAt(e.target.value);
-                if (!tzHint) {
-                  const offset = -new Date().getTimezoneOffset() / 60;
-                  setTzHint(`Время по вашему часовому поясу (UTC${offset >= 0 ? "+" : ""}${offset}).`);
-                }
-              }}
-              min={formatDateTimeLocal(new Date())}
-            />
-          </label>
-          {tzHint && <div className="hint">{tzHint}</div>}
+          {!isPublished && (
+            <>
+              <label>
+                Дата и время публикации
+                <input
+                  type="datetime-local"
+                  value={scheduledAt}
+                  onChange={(e) => {
+                    setScheduledAt(e.target.value);
+                    if (!tzHint) {
+                      const offset = -new Date().getTimezoneOffset() / 60;
+                      setTzHint(`Время по вашему часовому поясу (UTC${offset >= 0 ? "+" : ""}${offset}).`);
+                    }
+                  }}
+                  min={formatDateTimeLocal(new Date())}
+                />
+              </label>
+              {tzHint && <div className="hint">{tzHint}</div>}
+            </>
+          )}
           {error && <div className="error">{error}</div>}
           <div className="actions">
             <button type="button" className="ghost-dark" onClick={onClose}>

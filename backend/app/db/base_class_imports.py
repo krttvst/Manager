@@ -4,5 +4,6 @@ from app.models.channel import Channel
 from app.models.post import Post
 from app.models.source_item import SourceItem
 from app.models.audit_log import AuditLog
+from app.models.agent_settings import AgentSettings
 
-__all__ = ["Base", "User", "Channel", "Post", "SourceItem", "AuditLog"]
+__all__ = ["Base", "User", "Channel", "Post", "SourceItem", "AuditLog", "AgentSettings"]

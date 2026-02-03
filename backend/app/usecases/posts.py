@@ -10,7 +10,7 @@ from app.models.post import Post
 from app.repositories import posts as post_repo
 from app.schemas.post import PostCreate, PostUpdate, ScheduleRequest, RejectRequest
 from app.services.audit import log_action
-from app.services.telegram import publish_message, edit_message, delete_message
+from app.services.telegram import publish_message, edit_message, delete_message, get_message_views
 
 
 def create_post(db: Session, channel_id: int, payload: PostCreate, user) -> Post:
@@ -31,7 +31,27 @@ def create_post(db: Session, channel_id: int, payload: PostCreate, user) -> Post
 
 
 def list_posts(db: Session, channel_id: int, status_filters, limit: int, offset: int) -> list[dict]:
-    return post_repo.list_posts_compact(db, channel_id, status_filters, limit=limit, offset=offset)
+    rows = post_repo.list_posts_compact(db, channel_id, status_filters, limit=limit, offset=offset)
+    if not settings.telegram_feature_views:
+        return rows
+
+    channel = db.get(Channel, channel_id)
+    if not channel:
+        return rows
+
+    for row in rows:
+        if row.get("status") != PostStatus.published:
+            continue
+        message_id = row.get("telegram_message_id")
+        if not message_id:
+            continue
+        views = get_message_views(channel.telegram_channel_identifier, message_id)
+        if views is None:
+            continue
+        if row.get("last_known_views") != views:
+            post_repo.update_last_known_views(db, row["id"], views)
+            row["last_known_views"] = views
+    return rows
 
 
 def get_post(db: Session, post_id: int) -> Post:
