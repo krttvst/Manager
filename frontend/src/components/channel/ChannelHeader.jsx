@@ -1,6 +1,7 @@
 export default function ChannelHeader({
   channel,
   canCreatePost,
+  canDeleteChannel,
   onCreatePost,
   onDeleteChannel
 }) {
@@ -17,14 +18,14 @@ export default function ChannelHeader({
       </div>
       <div className="actions-inline">
         {canCreatePost && (
-          <>
-            <button className="primary" onClick={onCreatePost}>
-              Создать пост
-            </button>
-            <button className="ghost-dark" onClick={onDeleteChannel}>
-              Удалить канал
-            </button>
-          </>
+          <button className="primary" onClick={onCreatePost}>
+            Создать пост
+          </button>
+        )}
+        {canDeleteChannel && (
+          <button className="ghost-dark" onClick={onDeleteChannel}>
+            Удалить канал
+          </button>
         )}
       </div>
     </div>

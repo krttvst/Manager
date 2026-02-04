@@ -4,6 +4,7 @@ from app.models.post import Post
 from app.models.source_item import SourceItem
 from app.models.audit_log import AuditLog
 from app.models.agent_settings import AgentSettings
+from app.models.suggestion import Suggestion
 from app.models.enums import UserRole, PostStatus
 
 __all__ = [
@@ -13,6 +14,7 @@ __all__ = [
     "SourceItem",
     "AuditLog",
     "AgentSettings",
+    "Suggestion",
     "UserRole",
     "PostStatus",
 ]

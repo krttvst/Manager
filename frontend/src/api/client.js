@@ -7,12 +7,6 @@ function getStoredToken() {
   return localStorage.getItem("token");
 }
 
-function withTokenQuery(path, token) {
-  if (!token) return path;
-  const joiner = path.includes("?") ? "&" : "?";
-  return `${path}${joiner}access_token=${encodeURIComponent(token)}`;
-}
-
 function normalizePath(path) {
   if (path.startsWith(API_PREFIX)) return path;
   const normalized = path.startsWith("/") ? path : `/${path}`;
@@ -38,7 +32,7 @@ function logApiError(err) {
 
 export async function apiFetch(path, { token, method = "GET", body } = {}) {
   const authToken = token || getStoredToken();
-  const url = withTokenQuery(normalizePath(path), authToken);
+  const url = normalizePath(path);
   let res;
   try {
     res = await fetch(url, {
@@ -86,7 +80,7 @@ async function safeJson(res) {
 
 export async function apiFetchMultipart(path, { token, form, method = "POST" } = {}) {
   const authToken = token || getStoredToken();
-  const url = withTokenQuery(normalizePath(path), authToken);
+  const url = normalizePath(path);
   let res;
   try {
     res = await fetch(url, {
@@ -100,6 +94,18 @@ export async function apiFetchMultipart(path, { token, form, method = "POST" } =
     const netErr = new Error("Сетевая ошибка");
     logApiError(netErr);
     throw netErr;
+  }
+  if (res.status === 401) {
+    const data = await safeJson(res);
+    const err = buildError(res, data);
+    logApiError(err);
+    if (typeof localStorage !== "undefined") {
+      localStorage.removeItem("token");
+    }
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event(AUTH_LOGOUT_EVENT));
+    }
+    throw err;
   }
   if (!res.ok) {
     const data = await safeJson(res);

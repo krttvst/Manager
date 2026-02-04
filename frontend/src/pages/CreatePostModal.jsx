@@ -5,7 +5,7 @@ import { createPost, publishNow, schedulePost, submitApproval, approvePost } fro
 import { uploadMedia } from "../api/media.js";
 import { formatDateTimeLocal } from "../utils/date.js";
 
-export default function CreatePostModal({ channelId, onClose, onCreated }) {
+export default function CreatePostModal({ channelId, canApprove, onClose, onCreated }) {
   const { token } = useAuth();
   const [title, setTitle] = useState("");
   const [bodyText, setBodyText] = useState("");
@@ -32,6 +32,10 @@ export default function CreatePostModal({ channelId, onClose, onCreated }) {
         body_text: bodyText,
         media_url: mediaUrl
       });
+      if (!canApprove) {
+        await submitApproval(token, post.id);
+        return post;
+      }
       if (scheduledAt) {
         const iso = new Date(scheduledAt).toISOString();
         await submitApproval(token, post.id);
@@ -101,22 +105,26 @@ export default function CreatePostModal({ channelId, onClose, onCreated }) {
             Картинка
             <input type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files?.[0] || null)} />
           </label>
-          <label>
-            Дата и время публикации
-            <input
-              type="datetime-local"
-              value={scheduledAt}
-              onChange={(e) => {
-                setScheduledAt(e.target.value);
-                if (!tzHint) {
-                  const offset = -new Date().getTimezoneOffset() / 60;
-                  setTzHint(`Время по вашему часовому поясу (UTC${offset >= 0 ? "+" : ""}${offset}).`);
-                }
-              }}
-              min={formatDateTimeLocal(new Date())}
-            />
-          </label>
-          {tzHint && <div className="hint">{tzHint}</div>}
+          {canApprove && (
+            <>
+              <label>
+                Дата и время публикации
+                <input
+                  type="datetime-local"
+                  value={scheduledAt}
+                  onChange={(e) => {
+                    setScheduledAt(e.target.value);
+                    if (!tzHint) {
+                      const offset = -new Date().getTimezoneOffset() / 60;
+                      setTzHint(`Время по вашему часовому поясу (UTC${offset >= 0 ? "+" : ""}${offset}).`);
+                    }
+                  }}
+                  min={formatDateTimeLocal(new Date())}
+                />
+              </label>
+              {tzHint && <div className="hint">{tzHint}</div>}
+            </>
+          )}
           {error && <div className="error">{error}</div>}
           <div className="actions">
             <button type="button" className="ghost-dark" onClick={onClose}>
@@ -133,9 +141,11 @@ export default function CreatePostModal({ channelId, onClose, onCreated }) {
             <button type="submit" className="primary" disabled={submitMutation.isPending || saveDraftMutation.isPending}>
               {submitMutation.isPending
                 ? "Подождите..."
-                : scheduledAt
-                ? "Добавить в очередь"
-                : "Опубликовать сразу"}
+                : canApprove
+                ? scheduledAt
+                  ? "Добавить в очередь"
+                  : "Опубликовать сразу"
+                : "Отправить на согласование"}
             </button>
           </div>
         </form>

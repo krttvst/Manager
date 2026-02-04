@@ -1,7 +1,15 @@
 import { useState } from "react";
 import { previewUrl } from "../api/media.js";
 
-export default function PostPreviewModal({ post, onClose, onEdit, onDelete, isDeleting = false }) {
+export default function PostPreviewModal({
+  post,
+  onClose,
+  onEdit,
+  onDelete,
+  canEdit = true,
+  canDelete = false,
+  isDeleting = false
+}) {
   const preview = previewUrl(post.media_url);
   const [menuOpen, setMenuOpen] = useState(false);
   return (
@@ -20,12 +28,16 @@ export default function PostPreviewModal({ post, onClose, onEdit, onDelete, isDe
             </button>
             {menuOpen && (
               <div className="menu-panel" onClick={(e) => e.stopPropagation()}>
-                <button type="button" className="menu-item" onClick={onEdit}>
-                  Редактировать
-                </button>
-                <button type="button" className="menu-item" onClick={onDelete} disabled={isDeleting}>
-                  {isDeleting ? "Удаление..." : "Удалить"}
-                </button>
+                {canEdit && (
+                  <button type="button" className="menu-item" onClick={onEdit}>
+                    Редактировать
+                  </button>
+                )}
+                {canDelete && (
+                  <button type="button" className="menu-item" onClick={onDelete} disabled={isDeleting}>
+                    {isDeleting ? "Удаление..." : "Удалить"}
+                  </button>
+                )}
                 <button type="button" className="menu-item" onClick={onClose}>
                   Закрыть
                 </button>

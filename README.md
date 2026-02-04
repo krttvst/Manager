@@ -36,6 +36,11 @@ docker-compose exec backend python -m app.scripts.create_admin
 ## Метрики
 MVP предусматривает graceful degradation: при недоступности просмотров через Bot API метрики будут показываться как недоступные. Флаг: `TELEGRAM_FEATURE_VIEWS`.
 
+## N8N / Предложения
+Для загрузки предложений из n8n используйте API key и эндпоинт:
+- `POST /v1/channels/{channel_id}/suggestions`
+- Заголовок: `X-API-Key: <N8N_API_KEY>`
+
 ## AI генерация (MVP)
 Сейчас используется упрощённая генерация: парсинг текста по URL и короткое резюме. Интеграцию с LLM можно добавить позже через `OPENAI_API_KEY`.
 

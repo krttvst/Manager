@@ -9,7 +9,6 @@ export default function AppShell() {
 
   function logout() {
     localStorage.removeItem("token");
-    document.cookie = "access_token=; Max-Age=0; path=/";
     setToken(null);
     navigate("/login");
   }

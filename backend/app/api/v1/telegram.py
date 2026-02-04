@@ -1,13 +1,20 @@
-from fastapi import APIRouter, Request, Depends
+from fastapi import APIRouter, Request, Depends, HTTPException, status
+from fastapi_limiter.depends import RateLimiter
 from sqlalchemy.orm import Session
 from app.db.deps import get_db
 from app.usecases import channels as channel_usecase
+from app.core.config import settings
 
 router = APIRouter(prefix="/telegram", tags=["telegram"])
 
 
-@router.post("/webhook")
+@router.post("/webhook", dependencies=[Depends(RateLimiter(times=60, seconds=60))])
 async def telegram_webhook(request: Request, db: Session = Depends(get_db)):
+    if settings.telegram_webhook_secret:
+        secret = request.headers.get("x-telegram-bot-api-secret-token")
+        if secret != settings.telegram_webhook_secret:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid webhook secret")
+
     update = await request.json()
     payload = update.get("my_chat_member") or update.get("chat_member")
     if not payload:

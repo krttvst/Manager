@@ -5,7 +5,7 @@ import { uploadMedia } from "../api/media.js";
 import { useAuth } from "../state/auth.jsx";
 import { formatDateTimeLocal, normalizeApiDate } from "../utils/date.js";
 
-export default function EditPostModal({ post, onClose, onUpdated }) {
+export default function EditPostModal({ post, canApprove, onClose, onUpdated }) {
   const { token } = useAuth();
   const [title, setTitle] = useState(post.title);
   const [bodyText, setBodyText] = useState(post.body_text);
@@ -77,7 +77,7 @@ export default function EditPostModal({ post, onClose, onUpdated }) {
     setError("");
     try {
       const updated = await updateMutation.mutateAsync();
-      if (scheduledAt && !isPublished) {
+      if (canApprove && scheduledAt && !isPublished) {
         const selected = new Date(scheduledAt);
         if (Number.isNaN(selected.getTime()) || selected <= new Date()) {
           setError("Дата и время должны быть в будущем");
@@ -139,7 +139,7 @@ export default function EditPostModal({ post, onClose, onUpdated }) {
             Картинка
             <input type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files?.[0] || null)} />
           </label>
-          {!isPublished && (
+          {!isPublished && canApprove && (
             <>
               <label>
                 Дата и время публикации
@@ -171,7 +171,7 @@ export default function EditPostModal({ post, onClose, onUpdated }) {
             >
               {updateMutation.isPending ? "Сохранение..." : "Сохранить"}
             </button>
-            {!isPublished && (
+            {!isPublished && canApprove && (
               <>
                 <button
                   type="button"

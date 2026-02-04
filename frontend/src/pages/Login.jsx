@@ -16,7 +16,6 @@ export default function Login() {
     try {
       const data = await login(email, password);
       localStorage.setItem("token", data.access_token);
-      document.cookie = `access_token=${data.access_token}; path=/`;
       setToken(data.access_token);
       navigate("/");
     } catch (err) {

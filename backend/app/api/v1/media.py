@@ -1,7 +1,7 @@
 from pathlib import Path
 from uuid import uuid4
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 from app.api.deps import get_current_user
 from app.core.config import settings
 
@@ -23,10 +23,27 @@ def upload_media(
     previews_dir = media_dir / "previews"
     previews_dir.mkdir(parents=True, exist_ok=True)
 
+    size = file.size
+    if size is None:
+        try:
+            file.file.seek(0, 2)
+            size = file.file.tell()
+            file.file.seek(0)
+        except Exception:
+            size = None
+    if size is not None and size > settings.media_max_bytes:
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="File too large")
+
+    Image.MAX_IMAGE_PIXELS = settings.media_max_pixels
     try:
         image = Image.open(file.file)
+    except UnidentifiedImageError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid image file")
     except Exception:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid image file")
+
+    if image.width * image.height > settings.media_max_pixels:
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Image too large")
 
     image = image.convert("RGB")
     image.thumbnail((MAX_SIZE, MAX_SIZE))

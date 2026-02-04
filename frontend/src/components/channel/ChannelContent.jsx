@@ -1,5 +1,7 @@
 import PostsGridSection from "./PostsGridSection.jsx";
 import PostsGridList from "./PostsGridList.jsx";
+import { formatDateTime } from "../../utils/date.js";
+import { previewUrl } from "../../api/media.js";
 
 export default function ChannelContent({
   activeTab,
@@ -22,6 +24,12 @@ export default function ChannelContent({
   onLoadMorePosts,
   isPostsFetching,
   stats,
+  suggestions,
+  isSuggestionsLoading,
+  isSuggestionsMutating,
+  canModerateSuggestions,
+  onAcceptSuggestion,
+  onRejectSuggestion,
   onOpenAgentSettings
 }) {
   return (
@@ -87,7 +95,44 @@ export default function ChannelContent({
               </svg>
             </button>
           </div>
-            <div className="empty">Пока нет предложений.</div>
+            {isSuggestionsLoading && <div className="empty">Загрузка...</div>}
+            {!isSuggestionsLoading && suggestions.length === 0 && <div className="empty">Пока нет предложений.</div>}
+            {!isSuggestionsLoading && suggestions.length > 0 && (
+              <div className="post-grid">
+                {suggestions.map((item) => (
+                  <div key={item.id} className="post-card">
+                    {item.media_url && (
+                      <img className="post-card-image" src={previewUrl(item.media_url)} alt="" loading="lazy" />
+                    )}
+                    <div className="post-card-body">
+                      <div className="post-card-title">{item.title}</div>
+                      <div className="post-card-meta">{item.source_url || "AI агент"}</div>
+                      <div className="post-card-time">Добавлено: {formatDateTime(item.created_at)}</div>
+                      {canModerateSuggestions && (
+                        <div className="actions">
+                          <button
+                            className="primary"
+                            type="button"
+                            onClick={() => onAcceptSuggestion(item.id)}
+                            disabled={isSuggestionsMutating}
+                          >
+                            Принять
+                          </button>
+                          <button
+                            className="ghost-dark"
+                            type="button"
+                            onClick={() => onRejectSuggestion(item.id)}
+                            disabled={isSuggestionsMutating}
+                          >
+                            Отклонить
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="badge-row sticky-filters">{badges}</div>

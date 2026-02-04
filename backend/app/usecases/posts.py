@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -10,7 +10,9 @@ from app.models.post import Post
 from app.repositories import posts as post_repo
 from app.schemas.post import PostCreate, PostUpdate, ScheduleRequest, RejectRequest
 from app.services.audit import log_action
-from app.services.telegram import publish_message, edit_message, delete_message, get_message_views
+from app.services.telegram import edit_message, delete_message, get_message_views
+from app.services.publisher import publish_post
+from app.metrics import POST_STATUS_TRANSITIONS_TOTAL
 
 
 def create_post(db: Session, channel_id: int, payload: PostCreate, user) -> Post:
@@ -92,10 +94,12 @@ def submit_approval(db: Session, post_id: int, user) -> Post:
     if post.status not in {PostStatus.draft, PostStatus.rejected}:
         return post
 
+    previous = post.status
     post.status = PostStatus.pending
     post.updated_by = user.id
     post.updated_at = datetime.utcnow()
     post = post_repo.save_post(db, post)
+    POST_STATUS_TRANSITIONS_TOTAL.labels(previous.value, post.status.value).inc()
     return post
 
 
@@ -104,11 +108,13 @@ def approve_post(db: Session, post_id: int, user) -> Post:
     if post.status != PostStatus.pending:
         return post
 
+    previous = post.status
     post.status = PostStatus.approved
     post.editor_comment = None
     post.updated_by = user.id
     post.updated_at = datetime.utcnow()
     post = post_repo.save_post(db, post)
+    POST_STATUS_TRANSITIONS_TOTAL.labels(previous.value, post.status.value).inc()
     log_action(db, "post", post.id, "approve", user.id, {"status": post.status})
     return post
 
@@ -118,17 +124,20 @@ def reject_post(db: Session, post_id: int, payload: RejectRequest, user) -> Post
     if post.status != PostStatus.pending:
         return post
 
+    previous = post.status
     post.status = PostStatus.rejected
     post.editor_comment = payload.comment
     post.updated_by = user.id
     post.updated_at = datetime.utcnow()
     post = post_repo.save_post(db, post)
+    POST_STATUS_TRANSITIONS_TOTAL.labels(previous.value, post.status.value).inc()
     log_action(db, "post", post.id, "reject", user.id, {"status": post.status, "comment": payload.comment})
     return post
 
 
 def schedule_post(db: Session, post_id: int, payload: ScheduleRequest, user) -> Post:
     post = get_post(db, post_id)
+    original = post.status
     if post.status in {PostStatus.draft, PostStatus.rejected}:
         post.status = PostStatus.pending
     if post.status == PostStatus.pending:
@@ -143,11 +152,15 @@ def schedule_post(db: Session, post_id: int, payload: ScheduleRequest, user) -> 
     if scheduled_at <= now:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Scheduled time must be in the future")
 
+    previous = post.status
     post.status = PostStatus.scheduled
     post.scheduled_at = scheduled_at
     post.updated_by = user.id
     post.updated_at = datetime.utcnow()
     post = post_repo.save_post(db, post)
+    POST_STATUS_TRANSITIONS_TOTAL.labels(previous.value, post.status.value).inc()
+    if original != previous:
+        POST_STATUS_TRANSITIONS_TOTAL.labels(original.value, previous.value).inc()
     log_action(db, "post", post.id, "schedule", user.id, {"status": post.status, "scheduled_at": str(payload.scheduled_at)})
     return post
 
@@ -162,41 +175,7 @@ def publish_now(db: Session, post_id: int, user) -> Post:
     if post.status not in {PostStatus.approved, PostStatus.scheduled}:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid status")
 
-    channel = db.get(Channel, post.channel_id)
-    if not channel:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Channel not found")
-
-    result = publish_message(
-        channel.telegram_channel_identifier,
-        f"{post.title}\n\n{post.body_text}",
-        post.media_url,
-    )
-    if result.ok:
-        post.status = PostStatus.published
-        post.published_at = datetime.utcnow()
-        post.telegram_message_id = result.message_id
-        post.last_error = None
-        post.updated_by = user.id
-        post.updated_at = datetime.utcnow()
-        post = post_repo.save_post(db, post)
-        log_action(db, "post", post.id, "publish", user.id, {"status": post.status})
-        return post
-
-    post.publish_attempts += 1
-    post.updated_by = user.id
-    post.updated_at = datetime.utcnow()
-    post.last_error = result.error
-    if post.publish_attempts < settings.publish_retry_max:
-        post.status = PostStatus.scheduled
-        post.scheduled_at = datetime.utcnow() + timedelta(seconds=settings.publish_retry_delay_seconds)
-        post = post_repo.save_post(db, post)
-        log_action(db, "post", post.id, "retry", user.id, {"error": result.error})
-        return post
-
-    post.status = PostStatus.failed
-    post = post_repo.save_post(db, post)
-    log_action(db, "post", post.id, "fail", user.id, {"error": result.error})
-    return post
+    return publish_post(db, post, user.id)
 
 
 def delete_post(db: Session, post_id: int, user) -> None:
