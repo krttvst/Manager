@@ -1,0 +1,23 @@
+{
+  email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+  encode zstd gzip
+
+  # API + media go to backend
+  handle_path /v1/* {
+    reverse_proxy backend:8000
+  }
+  handle_path /media/* {
+    reverse_proxy backend:8000
+  }
+
+  # SPA frontend
+  handle {
+    root * /srv
+    try_files {path} /index.html
+    file_server
+  }
+}
+
