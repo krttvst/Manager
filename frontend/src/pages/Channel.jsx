@@ -33,8 +33,7 @@ const PAGE_SIZE = 50;
 
 export default function Channel() {
   const { id } = useParams();
-  const { token } = useAuth();
-  const { user } = useAuth();
+  const { token, user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("queue");

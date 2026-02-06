@@ -10,6 +10,15 @@ import {
 import { deleteChannel as deleteChannelApi } from "../api/channels.js";
 
 export function useChannelActions({ token, channelId, navigate, invalidatePosts, onError }) {
+  async function mutateSafe(mutation, payload) {
+    try {
+      // tanstack v5: mutateAsync returns a promise and throws on error.
+      return await mutation.mutateAsync(payload);
+    } catch {
+      return null;
+    }
+  }
+
   const submitApprovalMutation = useMutation({
     mutationFn: (postId) => submitApprovalApi(token, postId),
     onSuccess: invalidatePosts,
@@ -60,41 +69,12 @@ export function useChannelActions({ token, channelId, navigate, invalidatePosts,
     publishNowMutation,
     deleteMutation,
     deleteChannelMutation,
-    async submitApproval(postId) {
-      try {
-        await submitApprovalMutation.mutateAsync(postId);
-      } catch {}
-    },
-    async approve(postId) {
-      try {
-        await approveMutation.mutateAsync(postId);
-      } catch {}
-    },
-    async reject(postId, comment) {
-      try {
-        await rejectMutation.mutateAsync({ postId, comment });
-      } catch {}
-    },
-    async schedule(postId, iso) {
-      try {
-        await scheduleMutation.mutateAsync({ postId, iso });
-      } catch {}
-    },
-    async publishNow(postId) {
-      try {
-        await publishNowMutation.mutateAsync(postId);
-      } catch {}
-    },
-    async removePost(postId) {
-      try {
-        await deleteMutation.mutateAsync(postId);
-      } catch {}
-    },
-    async removeChannel() {
-      try {
-        await deleteChannelMutation.mutateAsync();
-      } catch {}
-    }
+    submitApproval: (postId) => mutateSafe(submitApprovalMutation, postId),
+    approve: (postId) => mutateSafe(approveMutation, postId),
+    reject: (postId, comment) => mutateSafe(rejectMutation, { postId, comment }),
+    schedule: (postId, iso) => mutateSafe(scheduleMutation, { postId, iso }),
+    publishNow: (postId) => mutateSafe(publishNowMutation, postId),
+    removePost: (postId) => mutateSafe(deleteMutation, postId),
+    removeChannel: () => mutateSafe(deleteChannelMutation)
   };
 }
-

@@ -1,10 +1,12 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { getMe } from "../api/auth.js";
+import { AUTH_LOGOUT_EVENT } from "./authEvents.js";
+import { clearStoredToken, getStoredToken, setStoredToken } from "./tokenStorage.js";
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [token, setToken] = useState(localStorage.getItem("token"));
+  const [token, setToken] = useState(() => getStoredToken());
   const [user, setUser] = useState(null);
 
   useEffect(() => {
@@ -18,10 +20,10 @@ export function AuthProvider({ children }) {
       setUser(null);
     }
     window.addEventListener("storage", handleStorage);
-    window.addEventListener("auth:logout", handleLogout);
+    window.addEventListener(AUTH_LOGOUT_EVENT, handleLogout);
     return () => {
       window.removeEventListener("storage", handleStorage);
-      window.removeEventListener("auth:logout", handleLogout);
+      window.removeEventListener(AUTH_LOGOUT_EVENT, handleLogout);
     };
   }, []);
 
@@ -41,7 +43,22 @@ export function AuthProvider({ children }) {
     loadMe();
   }, [token]);
 
-  const value = useMemo(() => ({ token, setToken, user }), [token, user]);
+  const value = useMemo(
+    () => ({
+      token,
+      user,
+      loginWithToken(nextToken) {
+        setStoredToken(nextToken);
+        setToken(nextToken);
+      },
+      logout() {
+        clearStoredToken();
+        setToken(null);
+        setUser(null);
+      }
+    }),
+    [token, user]
+  );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

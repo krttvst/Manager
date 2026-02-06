@@ -3,13 +3,12 @@ import { Link, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../state/auth.jsx";
 
 export default function AppShell() {
-  const { setToken } = useAuth();
+  const { logout: authLogout } = useAuth();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
 
   function logout() {
-    localStorage.removeItem("token");
-    setToken(null);
+    authLogout();
     navigate("/login");
   }
 

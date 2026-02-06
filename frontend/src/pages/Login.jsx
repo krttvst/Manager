@@ -7,7 +7,7 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const { setToken } = useAuth();
+  const { loginWithToken } = useAuth();
   const navigate = useNavigate();
 
   async function handleSubmit(event) {
@@ -15,8 +15,7 @@ export default function Login() {
     setError("");
     try {
       const data = await login(email, password);
-      localStorage.setItem("token", data.access_token);
-      setToken(data.access_token);
+      loginWithToken(data.access_token);
       navigate("/");
     } catch (err) {
       setError(err.message);

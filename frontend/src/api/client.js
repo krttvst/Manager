@@ -1,11 +1,8 @@
-const DEFAULT_ERROR = "Ошибка запроса";
-const AUTH_LOGOUT_EVENT = "auth:logout";
-const API_PREFIX = "/v1";
+import { emitAuthLogout } from "../state/authEvents.js";
+import { clearStoredToken, getStoredToken } from "../state/tokenStorage.js";
 
-function getStoredToken() {
-  if (typeof localStorage === "undefined") return null;
-  return localStorage.getItem("token");
-}
+const DEFAULT_ERROR = "Ошибка запроса";
+const API_PREFIX = "/v1";
 
 function normalizePath(path) {
   if (path.startsWith(API_PREFIX)) return path;
@@ -30,7 +27,7 @@ function logApiError(err) {
   });
 }
 
-export async function apiFetch(path, { token, method = "GET", body } = {}) {
+async function apiRequest(path, { token, method = "GET", body, isMultipart = false } = {}) {
   const authToken = token || getStoredToken();
   const url = normalizePath(path);
   let res;
@@ -38,10 +35,10 @@ export async function apiFetch(path, { token, method = "GET", body } = {}) {
     res = await fetch(url, {
       method,
       headers: {
-        ...(body ? { "Content-Type": "application/json" } : {}),
+        ...(body && !isMultipart ? { "Content-Type": "application/json" } : {}),
         ...(authToken ? { Authorization: `Bearer ${authToken}` } : {})
       },
-      body: body ? JSON.stringify(body) : undefined
+      body: body ? (isMultipart ? body : JSON.stringify(body)) : undefined
     });
   } catch (err) {
     const netErr = new Error("Сетевая ошибка");
@@ -52,12 +49,8 @@ export async function apiFetch(path, { token, method = "GET", body } = {}) {
     const data = await safeJson(res);
     const err = buildError(res, data);
     logApiError(err);
-    if (typeof localStorage !== "undefined") {
-      localStorage.removeItem("token");
-    }
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new Event(AUTH_LOGOUT_EVENT));
-    }
+    clearStoredToken();
+    emitAuthLogout();
     throw err;
   }
   if (!res.ok) {
@@ -70,6 +63,10 @@ export async function apiFetch(path, { token, method = "GET", body } = {}) {
   return res.json();
 }
 
+export async function apiFetch(path, { token, method = "GET", body } = {}) {
+  return apiRequest(path, { token, method, body, isMultipart: false });
+}
+
 async function safeJson(res) {
   try {
     return await res.json();
@@ -79,39 +76,5 @@ async function safeJson(res) {
 }
 
 export async function apiFetchMultipart(path, { token, form, method = "POST" } = {}) {
-  const authToken = token || getStoredToken();
-  const url = normalizePath(path);
-  let res;
-  try {
-    res = await fetch(url, {
-      method,
-      headers: {
-        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {})
-      },
-      body: form
-    });
-  } catch {
-    const netErr = new Error("Сетевая ошибка");
-    logApiError(netErr);
-    throw netErr;
-  }
-  if (res.status === 401) {
-    const data = await safeJson(res);
-    const err = buildError(res, data);
-    logApiError(err);
-    if (typeof localStorage !== "undefined") {
-      localStorage.removeItem("token");
-    }
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new Event(AUTH_LOGOUT_EVENT));
-    }
-    throw err;
-  }
-  if (!res.ok) {
-    const data = await safeJson(res);
-    const err = buildError(res, data);
-    logApiError(err);
-    throw err;
-  }
-  return res.json();
+  return apiRequest(path, { token, method, body: form, isMultipart: true });
 }
