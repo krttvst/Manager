@@ -49,7 +49,7 @@ Then configure host Nginx to proxy:
 
 ## 3) Apply migrations
 ```bash
-docker compose -f docker-compose.prod.yml exec backend alembic upgrade head
+docker compose -f docker-compose.prod.yml exec backend python -m alembic upgrade head
 ```
 
 ## 4) Create admin user
