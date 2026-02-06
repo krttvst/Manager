@@ -3,8 +3,11 @@
 This repo includes a production-ish docker compose setup with:
 - Postgres + Redis
 - FastAPI backend + Celery worker/beat
-- Caddy as reverse proxy with automatic HTTPS (Let's Encrypt)
-- Frontend built into the Caddy image (served as a SPA)
+- Frontend served as a built SPA
+
+Two deployment options are provided:
+1) `docker-compose.prod.yml` with Caddy (automatic HTTPS). Requires ports 80/443 free on the host.
+2) `docker-compose.nginx.prod.yml` for servers that already run host Nginx. Containers bind only to `127.0.0.1` and host Nginx proxies traffic.
 
 ## Prerequisites
 - A server with a public IPv4 address
@@ -31,6 +34,19 @@ Create `.env` from `.env.example` and fill at least:
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
+### Alternative: host Nginx
+If your server already runs Nginx on port 80/443, use:
+```bash
+docker compose -f docker-compose.nginx.prod.yml up -d --build
+```
+This starts:
+- frontend on `127.0.0.1:18080`
+- backend on `127.0.0.1:18000`
+
+Then configure host Nginx to proxy:
+- `/` -> `http://127.0.0.1:18080`
+- `/v1/` and `/media/` -> `http://127.0.0.1:18000`
+
 ## 3) Apply migrations
 ```bash
 docker compose -f docker-compose.prod.yml exec backend alembic upgrade head
@@ -47,4 +63,3 @@ docker compose -f docker-compose.prod.yml exec backend python -m app.scripts.cre
   - `/` -> frontend
   - `/v1/*` -> backend
   - `/media/*` -> backend static media
-
