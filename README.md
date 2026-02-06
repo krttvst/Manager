@@ -13,6 +13,7 @@ MVP веб‑приложения для управления нескольки
 ```bash
 cp .env.example .env
 ```
+Обязательно задайте `ADMIN_PASSWORD` и `TELEGRAM_BOT_TOKEN` в `.env`.
 2) Запуск через Docker:
 ```bash
 docker-compose up --build

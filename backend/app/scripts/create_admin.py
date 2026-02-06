@@ -5,7 +5,9 @@ from app.db.init_db import init_admin
 
 def main():
     email = os.getenv("ADMIN_EMAIL", "admin@example.com")
-    password = os.getenv("ADMIN_PASSWORD", "admin")
+    password = os.getenv("ADMIN_PASSWORD")
+    if not password:
+        raise SystemExit("ADMIN_PASSWORD is required (refuse to create admin with a default password)")
     db = SessionLocal()
     try:
         user = init_admin(db, email, password)

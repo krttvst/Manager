@@ -44,8 +44,13 @@ async def setup_rate_limiter():
     redis_url = settings.rate_limit_redis_url or settings.redis_url
     if not redis_url:
         return
-    redis = Redis.from_url(redis_url, encoding="utf-8", decode_responses=True)
-    await FastAPILimiter.init(redis)
+    try:
+        redis = Redis.from_url(redis_url, encoding="utf-8", decode_responses=True)
+        await FastAPILimiter.init(redis)
+        logger.info("rate_limiter_ready")
+    except Exception:
+        # Graceful degradation: allow API to start even if rate limiting backend is unavailable.
+        logger.exception("rate_limiter_init_failed", extra={"redis_url": redis_url})
 
 
 @app.middleware("http")
@@ -61,18 +66,23 @@ async def attach_request_id(request: Request, call_next):
     finally:
         duration = time.perf_counter() - start
         duration_ms = int(duration * 1000)
+        # Reduce Prometheus label cardinality: prefer route templates (e.g. /v1/channels/{channel_id})
+        # over the raw URL path (e.g. /v1/channels/123).
+        route = request.scope.get("route")
+        path_label = getattr(route, "path", None) or request.url.path
         if response is not None:
             response.headers.setdefault("X-Request-ID", request_id)
         if settings.metrics_enabled and request.url.path != "/metrics":
             status_code = str(response.status_code) if response is not None else "500"
-            HTTP_REQUESTS_TOTAL.labels(request.method, request.url.path, status_code).inc()
-            HTTP_REQUEST_DURATION.labels(request.method, request.url.path).observe(duration)
+            HTTP_REQUESTS_TOTAL.labels(request.method, path_label, status_code).inc()
+            HTTP_REQUEST_DURATION.labels(request.method, path_label).observe(duration)
         logger.info(
             "request",
             extra={
                 "request_id": request_id,
                 "method": request.method,
                 "path": request.url.path,
+                "path_label": path_label,
                 "status_code": response.status_code if response is not None else 500,
                 "duration_ms": duration_ms,
             },

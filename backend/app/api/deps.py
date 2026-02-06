@@ -8,7 +8,8 @@ from app.db.deps import get_db
 from app.models.user import User
 from app.models.enums import UserRole
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
+# OpenAPI "Authorize" flow must match the actual mounted route.
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/v1/auth/login", auto_error=False)
 logger = logging.getLogger("auth")
 
 
