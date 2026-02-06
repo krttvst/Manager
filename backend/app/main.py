@@ -8,12 +8,17 @@ from pathlib import Path
 from starlette.responses import JSONResponse, Response
 from redis.asyncio import Redis
 from fastapi_limiter import FastAPILimiter
-from fastapi_limiter.errors import RateLimitExceeded
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 from app.api.router import api_router
 from app.core.config import settings
 from app.core.logging import setup_logging
 from app.metrics import HTTP_REQUESTS_TOTAL, HTTP_REQUEST_DURATION
+
+try:
+    # fastapi-limiter has multiple variants in the wild; some do not expose errors.RateLimitExceeded.
+    from fastapi_limiter.errors import RateLimitExceeded  # type: ignore
+except Exception:  # pragma: no cover
+    RateLimitExceeded = None  # type: ignore
 
 setup_logging()
 
@@ -111,14 +116,15 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     )
 
 
-@app.exception_handler(RateLimitExceeded)
-async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
-    request_id = getattr(request.state, "request_id", None)
-    return JSONResponse(
-        status_code=429,
-        content={"detail": "Too many requests", "request_id": request_id},
-        headers={"X-Request-ID": request_id} if request_id else None,
-    )
+if RateLimitExceeded is not None:
+    @app.exception_handler(RateLimitExceeded)  # type: ignore[arg-type]
+    async def rate_limit_handler(request: Request, exc):  # noqa: ANN001
+        request_id = getattr(request.state, "request_id", None)
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Too many requests", "request_id": request_id},
+            headers={"X-Request-ID": request_id} if request_id else None,
+        )
 
 
 @app.get("/health")
