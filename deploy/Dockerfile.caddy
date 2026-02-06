@@ -1,11 +1,11 @@
 FROM node:20 AS frontend-build
 WORKDIR /src
 COPY frontend/package.json frontend/package-lock.json* /src/
-RUN npm ci
+# Support repos without package-lock.json.
+RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
 COPY frontend/ /src/
 RUN npm run build
 
 FROM caddy:2
 COPY deploy/Caddyfile /etc/caddy/Caddyfile
 COPY --from=frontend-build /src/dist /srv
-
