@@ -25,3 +25,5 @@ dist/
 .idea/
 .vscode/
 
+# Accidental artifacts (e.g. created by shell redirections with ports)
+:443-
