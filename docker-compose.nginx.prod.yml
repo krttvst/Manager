@@ -18,9 +18,7 @@ services:
       - redis_data:/data
 
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.prod
+    image: ghcr.io/krttvst/manager-tg-backend:${IMAGE_TAG:-main}
     restart: unless-stopped
     env_file:
       - .env
@@ -34,9 +32,7 @@ services:
       - media_data:${MEDIA_DIR:-/app/media}
 
   worker:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.prod
+    image: ghcr.io/krttvst/manager-tg-backend:${IMAGE_TAG:-main}
     restart: unless-stopped
     env_file:
       - .env
@@ -48,9 +44,7 @@ services:
       - media_data:${MEDIA_DIR:-/app/media}
 
   scheduler:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.prod
+    image: ghcr.io/krttvst/manager-tg-backend:${IMAGE_TAG:-main}
     restart: unless-stopped
     env_file:
       - .env
@@ -62,9 +56,7 @@ services:
       - media_data:${MEDIA_DIR:-/app/media}
 
   frontend:
-    build:
-      context: .
-      dockerfile: deploy/Dockerfile.frontend-nginx
+    image: ghcr.io/krttvst/manager-tg-frontend:${IMAGE_TAG:-main}
     restart: unless-stopped
     ports:
       - "127.0.0.1:18080:80"
@@ -73,4 +65,3 @@ volumes:
   db_data:
   redis_data:
   media_data:
-
