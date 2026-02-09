@@ -11,6 +11,7 @@ def test_audit_logs_admin_only(client, db_session):
     db_session.commit()
 
     log_action(db_session, "post", 1, "create", admin.id, {"status": "draft"})
+    db_session.commit()
 
     viewer_token = create_access_token(str(viewer.id))
     resp = client.get("/v1/audit-logs", headers={"Authorization": f"Bearer {viewer_token}"})
@@ -33,6 +34,7 @@ def test_audit_logs_filtering(client, db_session):
     log_action(db_session, "post", 10, "create", admin.id, {"status": "draft"})
     log_action(db_session, "post", 10, "update", admin.id, {"status": "pending"})
     log_action(db_session, "channel", 2, "delete", admin.id, {"post_ids": [1, 2]})
+    db_session.commit()
 
     token = create_access_token(str(admin.id))
     resp = client.get(

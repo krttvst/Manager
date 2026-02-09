@@ -60,6 +60,7 @@ def accept_suggestion(db: Session, channel_id: int, suggestion_id: int, user) ->
     post = post_repo.create_post(db, post)
     suggestion_repo.delete_suggestion(db, suggestion)
     log_action(db, "suggestion", suggestion_id, "accept", user.id, {"post_id": post.id})
+    db.commit()
     return post
 
 
@@ -71,3 +72,4 @@ def reject_suggestion(db: Session, channel_id: int, suggestion_id: int, user) ->
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Suggestion not found")
     suggestion_repo.delete_suggestion(db, suggestion)
     log_action(db, "suggestion", suggestion_id, "reject", user.id, {})
+    db.commit()

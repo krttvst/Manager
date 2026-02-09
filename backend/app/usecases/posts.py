@@ -31,6 +31,7 @@ def create_post(db: Session, channel_id: int, payload: PostCreate, user) -> Post
     )
     post = post_repo.create_post(db, post)
     log_action(db, "post", post.id, "create", user.id, {"status": post.status})
+    db.commit()
     return post
 
 
@@ -73,6 +74,7 @@ def update_post(db: Session, post_id: int, payload: PostUpdate, user) -> Post:
     post.updated_at = datetime.utcnow()
     post = post_repo.save_post(db, post)
     log_action(db, "post", post.id, "update", user.id, {"status": post.status})
+    db.commit()
 
     if post.status == PostStatus.published and post.telegram_message_id:
         channel = db.get(Channel, post.channel_id)
@@ -118,6 +120,7 @@ def approve_post(db: Session, post_id: int, user) -> Post:
     post = post_repo.save_post(db, post)
     POST_STATUS_TRANSITIONS_TOTAL.labels(previous.value, post.status.value).inc()
     log_action(db, "post", post.id, "approve", user.id, {"status": post.status})
+    db.commit()
     return post
 
 
@@ -144,6 +147,7 @@ def reject_post(db: Session, post_id: int, payload: RejectRequest, user) -> Post
     post = post_repo.save_post(db, post)
     POST_STATUS_TRANSITIONS_TOTAL.labels(previous.value, post.status.value).inc()
     log_action(db, "post", post.id, "reject", user.id, {"status": post.status, "comment": payload.comment})
+    db.commit()
     return post
 
 
@@ -174,6 +178,7 @@ def schedule_post(db: Session, post_id: int, payload: ScheduleRequest, user) -> 
     if original != previous:
         POST_STATUS_TRANSITIONS_TOTAL.labels(original.value, previous.value).inc()
     log_action(db, "post", post.id, "schedule", user.id, {"status": post.status, "scheduled_at": str(payload.scheduled_at)})
+    db.commit()
     return post
 
 
@@ -210,3 +215,4 @@ def delete_post(db: Session, post_id: int, user) -> None:
     post_repo.delete_source_items_for_post(db, post_id)
     post_repo.delete_post(db, post)
     log_action(db, "post", post_id, "delete", user.id, {})
+    db.commit()

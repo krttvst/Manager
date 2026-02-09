@@ -7,7 +7,7 @@ import secrets
 from app.services.audit import log_action
 
 
-def create_user(db: Session, payload: UserCreate) -> User:
+def create_user(db: Session, payload: UserCreate, *, actor_user_id: int) -> User:
     existing = db.query(User).filter(User.email == payload.email).first()
     if existing:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="User already exists")
@@ -15,6 +15,15 @@ def create_user(db: Session, payload: UserCreate) -> User:
     db.add(user)
     db.commit()
     db.refresh(user)
+    log_action(
+        db,
+        "user",
+        user.id,
+        "create",
+        actor_user_id,
+        {"email": user.email, "role": getattr(user.role, "value", str(user.role))},
+    )
+    db.commit()
     return user
 
 
@@ -31,18 +40,32 @@ def list_users(db: Session, *, limit: int = 50, offset: int = 0, q: str | None =
     return items, int(total)
 
 
-def update_user_role(db: Session, *, user_id: int, role) -> User:
+def update_user_role(db: Session, *, user_id: int, role, actor_user_id: int) -> User:
     user = db.get(User, int(user_id))
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    prev_role = user.role
     user.role = role
     db.add(user)
     db.commit()
     db.refresh(user)
+    log_action(
+        db,
+        "user",
+        user.id,
+        "set_role",
+        actor_user_id,
+        {
+            "email": user.email,
+            "from": getattr(prev_role, "value", str(prev_role)),
+            "to": getattr(user.role, "value", str(user.role)),
+        },
+    )
+    db.commit()
     return user
 
 
-def set_user_password(db: Session, *, user_id: int, password: str) -> User:
+def set_user_password(db: Session, *, user_id: int, password: str, actor_user_id: int) -> User:
     user = db.get(User, int(user_id))
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
@@ -52,17 +75,29 @@ def set_user_password(db: Session, *, user_id: int, password: str) -> User:
     db.add(user)
     db.commit()
     db.refresh(user)
+    log_action(db, "user", user.id, "set_password", actor_user_id, {"email": user.email})
+    db.commit()
     return user
 
 
-def set_user_active(db: Session, *, user_id: int, is_active: bool) -> User:
+def set_user_active(db: Session, *, user_id: int, is_active: bool, actor_user_id: int) -> User:
     user = db.get(User, int(user_id))
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    prev = bool(getattr(user, "is_active", True))
     user.is_active = bool(is_active)
     db.add(user)
     db.commit()
     db.refresh(user)
+    log_action(
+        db,
+        "user",
+        user.id,
+        "set_active",
+        actor_user_id,
+        {"email": user.email, "from": prev, "to": bool(user.is_active)},
+    )
+    db.commit()
     return user
 
 
@@ -74,7 +109,7 @@ def reset_user_password(db: Session, *, user_id: int, actor_user_id: int) -> tup
     temp_password = secrets.token_urlsafe(12)
     user.password_hash = hash_password(temp_password)
     db.add(user)
+    log_action(db, "user", user.id, "reset_password", actor_user_id, {"email": user.email})
     db.commit()
     db.refresh(user)
-    log_action(db, "user", user.id, "reset_password", actor_user_id, {"email": user.email})
     return user, temp_password

@@ -84,7 +84,6 @@ def requeue_failed_post(db: Session, *, post_id: int, actor_user_id: int, delay_
     post.scheduled_at = now + timedelta(seconds=delay)
     post.updated_by = actor_user_id
     post.updated_at = now
-    db.commit()
     log_action(db, "post", post.id, "requeue", actor_user_id, {"delay_seconds": delay})
+    db.commit()
     return post
-

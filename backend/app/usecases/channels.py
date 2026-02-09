@@ -41,6 +41,7 @@ def delete_channel(db: Session, channel_id: int, user) -> None:
     channel_repo.delete_posts_for_channel(db, post_ids)
     channel_repo.delete_channel(db, channel)
     log_action(db, "channel", channel_id, "delete", user.id, {"post_ids": post_ids})
+    db.commit()
 
 
 def lookup_channel(db: Session, identifier: str) -> ChannelLookupResponse:

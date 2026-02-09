@@ -27,6 +27,7 @@ def publish_post(db: Session, post: Post, actor_user_id: int, channel: Channel |
         PUBLISH_FAIL_TOTAL.inc()
         logger.warning("publish_fail", extra={"post_id": post.id, "error": post.last_error})
         log_action(db, "post", post.id, "fail", actor_user_id, {"error": post.last_error})
+        db.commit()
         return post
 
     result = publish_message(
@@ -47,6 +48,7 @@ def publish_post(db: Session, post: Post, actor_user_id: int, channel: Channel |
         PUBLISH_SUCCESS_TOTAL.inc()
         logger.info("publish_success", extra={"post_id": post.id})
         log_action(db, "post", post.id, "publish", actor_user_id, {"status": post.status})
+        db.commit()
         return post
 
     if not result.retryable:
@@ -59,6 +61,7 @@ def publish_post(db: Session, post: Post, actor_user_id: int, channel: Channel |
         PUBLISH_FAIL_TOTAL.inc()
         logger.warning("publish_fail", extra={"post_id": post.id, "error": result.error, "retryable": False})
         log_action(db, "post", post.id, "fail", actor_user_id, {"error": result.error, "retryable": False})
+        db.commit()
         return post
 
     post.publish_attempts += 1
@@ -73,6 +76,7 @@ def publish_post(db: Session, post: Post, actor_user_id: int, channel: Channel |
         PUBLISH_RETRY_TOTAL.inc()
         logger.info("publish_retry", extra={"post_id": post.id, "error": result.error})
         log_action(db, "post", post.id, "retry", actor_user_id, {"error": result.error})
+        db.commit()
         return post
 
     post.status = PostStatus.failed
@@ -81,4 +85,5 @@ def publish_post(db: Session, post: Post, actor_user_id: int, channel: Channel |
     PUBLISH_FAIL_TOTAL.inc()
     logger.warning("publish_fail", extra={"post_id": post.id, "error": result.error})
     log_action(db, "post", post.id, "fail", actor_user_id, {"error": result.error})
+    db.commit()
     return post
