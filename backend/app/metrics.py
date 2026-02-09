@@ -15,7 +15,6 @@ HTTP_REQUEST_DURATION = Histogram(
 SUGGESTION_CREATED_TOTAL = Counter(
     "suggestion_created_total",
     "Total suggestions created",
-    ["channel_id"],
 )
 
 POST_STATUS_TRANSITIONS_TOTAL = Counter(

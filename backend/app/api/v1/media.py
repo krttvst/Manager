@@ -34,7 +34,6 @@ def upload_media(
     if size is not None and size > settings.media_max_bytes:
         raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="File too large")
 
-    Image.MAX_IMAGE_PIXELS = settings.media_max_pixels
     try:
         image = Image.open(file.file)
     except UnidentifiedImageError:

@@ -1,11 +1,14 @@
 from datetime import datetime
-from sqlalchemy import String, DateTime, ForeignKey, Text
+from sqlalchemy import String, DateTime, ForeignKey, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
 
 class Suggestion(Base):
     __tablename__ = "suggestions"
+    __table_args__ = (
+        UniqueConstraint("channel_id", "source_hash", name="uq_suggestions_channel_source_hash"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     channel_id: Mapped[int] = mapped_column(ForeignKey("channels.id"), index=True)

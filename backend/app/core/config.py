@@ -1,5 +1,5 @@
 from pydantic import model_validator
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     database_url: str
 
     access_token_expire_minutes: int = 60
+    docs_enabled: bool | None = None
 
     telegram_bot_token: str | None = None
     telegram_feature_views: bool = False
@@ -23,6 +24,7 @@ class Settings(BaseSettings):
     rate_limit_enabled: bool = True
     rate_limit_redis_url: str | None = None
     metrics_enabled: bool = True
+    metrics_token: str | None = None
 
     publish_retry_max: int = 3
     publish_retry_delay_seconds: int = 300
@@ -33,15 +35,16 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _validate_secrets(self):
+        if self.docs_enabled is None:
+            # In production default to disabling docs unless explicitly enabled.
+            self.docs_enabled = self.app_env.lower() != "production"
         if self.app_env.lower() == "production" and self.app_secret == "change_me":
             raise ValueError("APP_SECRET must be set in production")
         if self.rate_limit_enabled and not (self.rate_limit_redis_url or self.redis_url):
             raise ValueError("Rate limiting enabled but Redis URL is missing")
         return self
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
+    model_config = SettingsConfigDict(env_file=".env", case_sensitive=False)
 
 
 settings = Settings()

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { previewUrl } from "../api/media.js";
+import PostComments from "../components/PostComments.jsx";
 
 export default function PostPreviewModal({
   post,
@@ -54,6 +55,7 @@ export default function PostPreviewModal({
             <div className="preview-body">{post.body_text}</div>
           </div>
         </div>
+        <PostComments postId={post.id} />
       </div>
     </div>
   );

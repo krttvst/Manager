@@ -3,9 +3,12 @@ import { Link, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../state/auth.jsx";
 
 export default function AppShell() {
-  const { logout: authLogout } = useAuth();
+  const { logout: authLogout, user } = useAuth();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
+  const role = user?.role || null;
+  const isAdmin = role === "admin";
+  const canModerate = role === "admin" || role === "editor";
 
   function logout() {
     authLogout();
@@ -32,6 +35,24 @@ export default function AppShell() {
               <Link to="/telegram">
                 <span className="nav-label">Telegram</span>
               </Link>
+              {canModerate && (
+                <Link to="/inbox">
+                  <span className="nav-label">Inbox</span>
+                </Link>
+              )}
+              <Link to="/schedule">
+                <span className="nav-label">Очередь</span>
+              </Link>
+              {isAdmin && (
+                <>
+                  <Link to="/admin/users">
+                    <span className="nav-label">Пользователи</span>
+                  </Link>
+                  <Link to="/audit">
+                    <span className="nav-label">Аудит</span>
+                  </Link>
+                </>
+              )}
               <Link to="/youtube">
                 <span className="nav-label">YouTube</span>
               </Link>

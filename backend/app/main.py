@@ -9,6 +9,7 @@ from starlette.responses import JSONResponse, Response
 from redis.asyncio import Redis
 from fastapi_limiter import FastAPILimiter
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+from PIL import Image
 from app.api.router import api_router
 from app.core.config import settings
 from app.core.logging import setup_logging
@@ -22,11 +23,17 @@ except Exception:  # pragma: no cover
 
 setup_logging()
 
-app = FastAPI(title="Manager TG API", version="0.1.0")
+docs_url = "/docs" if settings.docs_enabled else None
+redoc_url = "/redoc" if settings.docs_enabled else None
+openapi_url = "/openapi.json" if settings.docs_enabled else None
+
+app = FastAPI(title="Manager TG API", version="0.1.0", docs_url=docs_url, redoc_url=redoc_url, openapi_url=openapi_url)
 logger = logging.getLogger("manager_tg")
 
 app.include_router(api_router)
 Path(settings.media_dir).mkdir(parents=True, exist_ok=True)
+app.state.rate_limiter_ready = False
+Image.MAX_IMAGE_PIXELS = settings.media_max_pixels
 
 
 class MediaStaticFiles(StaticFiles):
@@ -52,9 +59,11 @@ async def setup_rate_limiter():
     try:
         redis = Redis.from_url(redis_url, encoding="utf-8", decode_responses=True)
         await FastAPILimiter.init(redis)
+        app.state.rate_limiter_ready = True
         logger.info("rate_limiter_ready")
     except Exception:
         # Graceful degradation: allow API to start even if rate limiting backend is unavailable.
+        app.state.rate_limiter_ready = False
         logger.exception("rate_limiter_init_failed", extra={"redis_url": redis_url})
 
 
@@ -133,7 +142,14 @@ def health():
 
 
 @app.get("/metrics")
-def metrics():
+def metrics(request: Request):
     if not settings.metrics_enabled:
         return Response(status_code=404)
+    if settings.app_env.lower() == "production":
+        # Avoid exposing internal metrics publicly unless explicitly configured.
+        if not settings.metrics_token:
+            return Response(status_code=404)
+        token = request.headers.get("x-metrics-token")
+        if token != settings.metrics_token:
+            return Response(status_code=404)
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)

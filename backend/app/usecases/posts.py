@@ -13,6 +13,8 @@ from app.services.audit import log_action
 from app.services.telegram import edit_message, delete_message, get_message_views
 from app.services.publisher import publish_post
 from app.metrics import POST_STATUS_TRANSITIONS_TOTAL
+from app.models.post_comment import PostComment
+from app.repositories import comments as comment_repo
 
 
 def create_post(db: Session, channel_id: int, payload: PostCreate, user) -> Post:
@@ -129,6 +131,16 @@ def reject_post(db: Session, post_id: int, payload: RejectRequest, user) -> Post
     post.editor_comment = payload.comment
     post.updated_by = user.id
     post.updated_at = datetime.utcnow()
+    # Keep a thread-like history of review decisions.
+    comment_repo.create_comment(
+        db,
+        PostComment(
+            post_id=post.id,
+            author_user_id=user.id,
+            kind="reject",
+            body_text=payload.comment,
+        ),
+    )
     post = post_repo.save_post(db, post)
     POST_STATUS_TRANSITIONS_TOTAL.labels(previous.value, post.status.value).inc()
     log_action(db, "post", post.id, "reject", user.id, {"status": post.status, "comment": payload.comment})
@@ -166,7 +178,15 @@ def schedule_post(db: Session, post_id: int, payload: ScheduleRequest, user) -> 
 
 
 def publish_now(db: Session, post_id: int, user) -> Post:
-    post = get_post(db, post_id)
+    # Prevent duplicate publishes by locking the row before calling Telegram.
+    post = (
+        db.query(Post)  # type: ignore[attr-defined]
+        .filter(Post.id == post_id)
+        .with_for_update()
+        .first()
+    )
+    if not post:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
     if post.status in {PostStatus.draft, PostStatus.rejected}:
         post.status = PostStatus.pending
     if post.status == PostStatus.pending:

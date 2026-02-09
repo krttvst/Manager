@@ -29,7 +29,7 @@ def create_suggestion(db: Session, channel_id: int, payload: SuggestionCreate) -
     )
     try:
         created = suggestion_repo.create_suggestion(db, suggestion)
-        SUGGESTION_CREATED_TOTAL.labels(str(channel_id)).inc()
+        SUGGESTION_CREATED_TOTAL.inc()
         return created
     except IntegrityError:
         db.rollback()

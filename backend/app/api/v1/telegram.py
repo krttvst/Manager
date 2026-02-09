@@ -1,14 +1,14 @@
 from fastapi import APIRouter, Request, Depends, HTTPException, status
-from fastapi_limiter.depends import RateLimiter
 from sqlalchemy.orm import Session
 from app.db.deps import get_db
 from app.usecases import channels as channel_usecase
 from app.core.config import settings
+from app.api.rate_limit import optional_rate_limiter
 
 router = APIRouter(prefix="/telegram", tags=["telegram"])
 
 
-@router.post("/webhook", dependencies=[Depends(RateLimiter(times=60, seconds=60))])
+@router.post("/webhook", dependencies=[Depends(optional_rate_limiter(times=60, seconds=60))])
 async def telegram_webhook(request: Request, db: Session = Depends(get_db)):
     if settings.telegram_webhook_secret:
         secret = request.headers.get("x-telegram-bot-api-secret-token")

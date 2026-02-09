@@ -43,6 +43,8 @@ def get_current_user(
     user = db.get(User, int(user_id))
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    if not getattr(user, "is_active", True):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User is inactive")
     return user
 
 

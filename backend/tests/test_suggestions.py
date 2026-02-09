@@ -26,7 +26,7 @@ def test_suggestions_idempotent(client, db_session):
 
 def test_suggestions_accept_reject(client, db_session):
     channel = Channel(title="Test 2", telegram_channel_identifier="@test2")
-    editor = User(email="editor@test.local", password_hash=hash_password("secret"), role=UserRole.editor)
+    editor = User(email="editor@example.com", password_hash=hash_password("secret"), role=UserRole.editor)
     db_session.add_all([channel, editor])
     db_session.commit()
 

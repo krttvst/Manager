@@ -14,6 +14,8 @@ from app.metrics import PUBLISH_SUCCESS_TOTAL, PUBLISH_RETRY_TOTAL, PUBLISH_FAIL
 def publish_post(db: Session, post: Post, actor_user_id: int, channel: Channel | None = None) -> Post:
     logger = logging.getLogger("publisher")
     previous_status = post.status
+    if post.status == PostStatus.published and post.telegram_message_id:
+        return post
     if channel is None:
         channel = db.get(Channel, post.channel_id)
     if not channel:

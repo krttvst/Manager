@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from app.db.deps import get_db
 from app.api.deps import get_current_user, require_api_key, require_roles
-from fastapi_limiter.depends import RateLimiter
+from app.api.rate_limit import optional_rate_limiter
 from app.models.enums import UserRole
 from app.schemas.suggestion import SuggestionCreate, SuggestionOut
 from app.schemas.post import PostOut
@@ -14,7 +14,7 @@ router = APIRouter(prefix="/channels/{channel_id}/suggestions", tags=["suggestio
 @router.post(
     "",
     response_model=SuggestionOut,
-    dependencies=[Depends(require_api_key), Depends(RateLimiter(times=30, seconds=60))],
+    dependencies=[Depends(require_api_key), Depends(optional_rate_limiter(times=30, seconds=60))],
 )
 def create_suggestion(
     channel_id: int,

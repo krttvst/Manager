@@ -1,6 +1,7 @@
 from app.models.user import User
 from app.models.channel import Channel
 from app.models.post import Post
+from app.models.post_comment import PostComment
 from app.models.source_item import SourceItem
 from app.models.audit_log import AuditLog
 from app.models.agent_settings import AgentSettings
@@ -11,6 +12,7 @@ __all__ = [
     "User",
     "Channel",
     "Post",
+    "PostComment",
     "SourceItem",
     "AuditLog",
     "AgentSettings",

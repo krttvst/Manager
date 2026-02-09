@@ -14,7 +14,7 @@ def create_post(
     channel_id: int,
     payload: PostCreate,
     db: Session = Depends(get_db),
-    user=Depends(get_current_user),
+    user=Depends(require_roles(UserRole.author, UserRole.editor, UserRole.admin)),
 ):
     return post_usecase.create_post(db, channel_id, payload, user)
 
@@ -47,7 +47,7 @@ def update_post(
     post_id: int,
     payload: PostUpdate,
     db: Session = Depends(get_db),
-    user=Depends(get_current_user),
+    user=Depends(require_roles(UserRole.author, UserRole.editor, UserRole.admin)),
 ):
     return post_usecase.update_post(db, post_id, payload, user)
 
@@ -56,7 +56,7 @@ def update_post(
 def submit_approval(
     post_id: int,
     db: Session = Depends(get_db),
-    user=Depends(get_current_user),
+    user=Depends(require_roles(UserRole.author, UserRole.editor, UserRole.admin)),
 ):
     return post_usecase.submit_approval(db, post_id, user)
 
