@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.orm import Session
 from app.db.deps import get_db
 from app.api.deps import get_current_user, require_roles
@@ -76,8 +76,11 @@ def update_active(
 @router.post("/{user_id}/reset-password", response_model=UserPasswordResetOut)
 def reset_password(
     user_id: int,
+    response: Response,
     db: Session = Depends(get_db),
     admin=Depends(require_roles(UserRole.admin)),
 ):
     _user, temp_password = user_service.reset_user_password(db, user_id=user_id, actor_user_id=admin.id)
+    # Prevent accidental caching of temporary passwords by browsers/proxies.
+    response.headers["Cache-Control"] = "no-store"
     return UserPasswordResetOut(temporary_password=temp_password)
